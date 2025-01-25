@@ -15,9 +15,9 @@ services:
       dockerfile: Dockerfile
     environment:
       DB_HOST: db
-      DB_NAME: your_database_name
+      DB_NAME: concerts_wrapped
       DB_USER: root
-      DB_PASSWORD: your_root_password
+      DB_PASSWORD: root
     ports:
       - "8000:8000"
     depends_on:
