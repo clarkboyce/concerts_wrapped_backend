@@ -1,20 +1,22 @@
 from flask import Flask
 from flask_cors import CORS
-from app.extensions import db
-from app.config import Config
+from .extensions import db
+from .config import Config
+from .routes.concert_routes import concert_bp
+from .routes.user_concerts_routes import user_concerts_bp
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)  # Enable CORS for all routes
+    CORS(app)
     app.config.from_object(Config)
 
     # Initialize extensions
-    db.init_app(app)
+    with app.app_context():
+        db.init_app(app)
+        db.create_all() # Ensure tables are created when app starts
 
-    # Register blueprints (for routes)
-    from app.routes.concert_routes import concert_bp
-    from app.routes.user_concerts_routes import user_concerts_bp
-    
+
+    # Register blueprints
     app.register_blueprint(concert_bp, url_prefix='/api/concerts')
     app.register_blueprint(user_concerts_bp, url_prefix='/api/user-concerts')
 

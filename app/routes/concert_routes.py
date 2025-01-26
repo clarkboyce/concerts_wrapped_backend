@@ -23,4 +23,5 @@ def delete_concert_view(id):
 @concert_bp.route("/", methods=["POST"])
 def create_concert_view():
     data = request.get_json()
-    return create_concert(data)
+    user_id = data.get("userId")  # Expecting userId to be included in the request body
+    return create_concert(data, user_id)

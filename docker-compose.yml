@@ -18,10 +18,13 @@ services:
       DB_NAME: concerts_wrapped
       DB_USER: root
       DB_PASSWORD: root
+    entrypoint: /bin/bash -c "python -m app.db.seed && flask run --host=0.0.0.0 --port=8000"
     ports:
       - "8000:8000"
     depends_on:
       - db
+
+
 volumes:
   db-data:
   
