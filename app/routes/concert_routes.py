@@ -1,27 +1,33 @@
-# app/routes/concert_routes.py
 from flask import Blueprint, request, jsonify
-from app.services.concert_service import (
-    get_concerts,
-    delete_concert,
-    create_concert
-)
+from app.services.concert_service import process_concert_tickets, get_concerts
 
 concert_bp = Blueprint("concert", __name__)
 
+@concert_bp.route("/", methods=["POST"])
+def process_concerts_view():
+    data = request.get_json()
+    user_id = data.get("userId")  # Expecting userId in the request body
+    tickets = data.get("tickets", [])
+
+    if not tickets:
+        return jsonify({"error": "No tickets provided"}), 400
+
+    results = process_concert_tickets(tickets, user_id)
+    return jsonify(results), 200
+
 @concert_bp.route("/", methods=["GET"])
-def get_all_concerts():
+def get_concerts_view():
+    # Get query parameters from the request
     artist = request.args.get("artist")
     city = request.args.get("city")
     state = request.args.get("state")
     date = request.args.get("date")
-    return jsonify(get_concerts(artist, city, state, date))
 
-@concert_bp.route("/<int:id>", methods=["DELETE"])
-def delete_concert_view(id):
-    return delete_concert(id)
+    # Fetch concerts using the provided service, applying filters
+    results = get_concerts(artist=artist, city=city, state=state, date=date)
 
-@concert_bp.route("/", methods=["POST"])
-def create_concert_view():
-    data = request.get_json()
-    user_id = data.get("userId")  # Expecting userId to be included in the request body
-    return create_concert(data, user_id)
+    # Limit the results to 20 concerts
+    limited_results = results[:20]
+
+    # Return the limited results as JSON
+    return jsonify(limited_results), 200

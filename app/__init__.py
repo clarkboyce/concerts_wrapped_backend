@@ -13,8 +13,7 @@ def create_app():
     # Initialize extensions
     with app.app_context():
         db.init_app(app)
-        db.create_all() # Ensure tables are created when app starts
-
+        db.create_all() 
 
     # Register blueprints
     app.register_blueprint(concert_bp, url_prefix='/api/concerts')

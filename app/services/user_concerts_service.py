@@ -19,11 +19,15 @@ def add_user_concert(user_id, concert_id, ticket_price, concert_date):
     existing_concert = UsersConcert.query.filter_by(user_id=user_id, concert_id=concert_id).first()
     
     if existing_concert:
-        abort(400, "This user is already attending this concert")
+        return None
     
     # Create a new UsersConcert entry if no duplicates are found
-    user_concert = UsersConcert(user_id=user_id, concert_id=concert_id, 
-                                user_ticket_price=ticket_price, timestamp=concert_date)
+    user_concert = UsersConcert(
+        user_id=user_id,
+        concert_id=concert_id,
+        user_ticket_price=ticket_price,
+        timestamp=concert_date,
+    )
     db.session.add(user_concert)
     db.session.commit()
 

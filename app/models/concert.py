@@ -12,7 +12,7 @@ class Concert(db.Model):
     capacity = db.Column(db.Integer, nullable=False)
     number_of_songs = db.Column(db.Integer, nullable=False)
 
-    # Relationship to UserConcert
+    # Relationship to UsersConcert
     users = db.relationship("UsersConcert", back_populates="concert", cascade="all, delete-orphan")
 
     def __repr__(self):

@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify
 from app.services.user_concerts_service import (
     add_user_concert,
     get_all_user_concerts,
-    update_user_concert,
     delete_user_concert
 )
 
@@ -26,14 +25,6 @@ def get_user_concerts():
         return jsonify({"error": "userId is required"}), 400
 
     return jsonify(get_all_user_concerts(user_id))
-
-@user_concerts_bp.route("/<int:id>", methods=["PUT"])
-def update_user_concert_view(id):
-    data = request.get_json()
-    ticket_price = data.get("ticketPrice")
-    concert_id = data.get("concertId")
-
-    return update_user_concert(id, concert_id, ticket_price)
 
 @user_concerts_bp.route("/", methods=["DELETE"])
 def delete_user_concert_view(): 

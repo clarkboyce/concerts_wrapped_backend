@@ -1,8 +1,13 @@
+
+from rapidfuzz import fuzz, process
 from app.models.concert import Concert
-from app.schemas.concert import ConcertSchema  # Changed from user_concerts to concert
-from app.models.user_concerts import UsersConcert  # Added import
+from app.schemas.concert import ConcertSchema
 from app.extensions import db
-from flask import abort
+from app.services.user_concerts_service import add_user_concert
+ # Changed from user_concerts to concert
+from app.extensions import db
+
+CONFIDENCE_THRESHOLD = 60  # Adjust as neededx
 
 def get_concerts(artist=None, city=None, state=None, date=None):
     query = Concert.query
@@ -18,48 +23,78 @@ def get_concerts(artist=None, city=None, state=None, date=None):
     concerts = query.all()
     return ConcertSchema(many=True).dump(concerts)  # Changed schema name
 
-def delete_concert(id):
-    concert = Concert.query.get(id)
-    if not concert:
-        abort(404, "Concert not found")
+# def delete_concert(id):
+#     concert = Concert.query.get(id)
+#     if not concert:
+#         abort(404, "Concert not found")
 
-    db.session.delete(concert)
-    db.session.commit()
-    return {"message": "Concert deleted successfully"}
+#     db.session.delete(concert)
+#     db.session.commit()
+#     return {"message": "Concert deleted successfully"}
 
-def create_concert(data, user_id=None):
-    # Search for an existing concert with matching artist, date, and venue
-    existing_concert = Concert.query.filter_by(
-        artist=data["artist"],
-        date=data["date"],
-        venue=data["venue"]
-    ).first()
+def process_concert_tickets(tickets, user_id=None):
+    results = []
 
-    if existing_concert:
-        # If a concert already exists, associate the user with the concert if user_id is provided
+    for ticket in tickets:
+        artist = ticket.get("artist")
+        date = ticket.get("date")
+        city = ticket.get("city")
+        ticket_price = ticket.get("ticket_price")
+
+        if not (artist and date and city):
+            results.append({"ticket": ticket, "error": "Missing required fields"})
+            continue
+
+        # Fuzzy match against existing concerts
+        concerts = Concert.query.filter_by(date=date, city=city).all()
+        concert_names = [concert.artist for concert in concerts]
+
+        match = process.extractOne(
+            artist, concert_names, scorer=fuzz.ratio
+        )  # Extract the best match and its confidence
+
+        if match and match[1] >= CONFIDENCE_THRESHOLD:
+            # Match found
+            matched_concert = next(
+                (c for c in concerts if c.artist == match[0]), None
+            )
+            if matched_concert:
+                if user_id:
+                    # Add the user to the concert
+                    add_user_concert(user_id, matched_concert.id, ticket_price, date)
+                results.append(
+                    {
+                        "ticket": ticket,
+                        "status": "Matched",
+                        "concert": ConcertSchema().dump(matched_concert),
+                    }
+                )
+                continue
+
+        # No match found: Create a new concert
+        new_concert = Concert(
+            artist=artist,
+            date=date,
+            city=city,
+            state="Unknown",  # Hardcoded value
+            venue="Unknown Venue",  # Hardcoded value
+            genres="Unknown",  # Hardcoded value
+            capacity=0,  # Hardcoded value
+            number_of_songs=0,  # Hardcoded value
+        )
+        db.session.add(new_concert)
+        db.session.commit()
+
         if user_id:
-            # Add the concert to the user's concert list
-            from app.services.user_concerts_service import add_user_concert
-            ticket_price = data.get("ticketPrice", 0)  # Example: Pass ticket price if it's part of the data
-            concert_date = data["date"]
-            return add_user_concert(user_id, existing_concert.id, ticket_price, concert_date)
-        
-        # Return the existing concert details without adding a new one
-        return ConcertSchema().dump(existing_concert), 200
-    
-    # If no concert exists, create a new one
-    concert = Concert(
-        artist=data["artist"],
-        genres=data["genres"],
-        date=data["date"],
-        venue=data["venue"],
-        city=data["city"],
-        state=data["state"],
-        capacity=data["capacity"],
-        number_of_songs=data["number_of_songs"]
-    )
-    db.session.add(concert)
-    db.session.commit()
+            # Add the user to the new concert
+            add_user_concert(user_id, new_concert.id, ticket_price, date)
 
-    # Return newly created concert details
-    return ConcertSchema().dump(concert), 201
+        results.append(
+            {
+                "ticket": ticket,
+                "status": "Created",
+                "concert": ConcertSchema().dump(new_concert),
+            }
+        )
+
+    return results

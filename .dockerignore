@@ -1,0 +1,76 @@
+# Version control
+.git
+.gitignore
+.svn
+.hg
+
+# Python specific
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+.env
+.venv
+env/
+venv/
+ENV/
+eggs/
+*.egg-info/
+
+# Development tools
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.bak
+*.log
+
+# Project specific
+tests/
+docs/
+*.md
+README*
+LICENSE
+CHANGELOG*
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
+*.zip
+*.rar
+
+# Local development files
+local_settings.py
+*.sqlite3
+*.db
+data/
+logs/
+tmp/
+
+# Media and static files (often better served from CDN/storage)
+media/
+static/
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.pdf
+*.mp4
+*.mov
+
+# Dependencies (if you're building them in container)
+node_modules/
+bower_components/

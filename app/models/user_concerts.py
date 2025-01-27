@@ -1,7 +1,7 @@
 from app.extensions import db
 
 class UsersConcert(db.Model):
-    __tablename__ = "UsersConcert"
+    __tablename__ = "user_concert"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, nullable=False)
     concert_id = db.Column(db.Integer, db.ForeignKey("concerts.id"), nullable=False)
