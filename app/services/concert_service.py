@@ -6,6 +6,10 @@ from app.extensions import db
 from app.services.user_concerts_service import add_user_concert
  # Changed from user_concerts to concert
 from app.extensions import db
+from perplexity import search_events  # The function above
+
+
+
 
 CONFIDENCE_THRESHOLD = 60  # Adjust as neededx
 
@@ -72,16 +76,33 @@ def process_concert_tickets(tickets, user_id=None):
                 continue
 
         # No match found: Create a new concert
+        api_response = search_events(artist, date, city)
+        if not api_response or not api_response.get("events"):
+            results.append({"ticket": ticket, "error": "No match found via API"})
+            continue
+
+        # Process Perplexity API response
+        events = api_response["events"]
+        new_concert_data = next((event for event in events if event.get("artist") == artist), None)
+
+        if not new_concert_data:
+            results.append({"ticket": ticket, "error": "No relevant data in API response"})
+            continue
+
+        # Step 3: Create a new concert with the API data
         new_concert = Concert(
-            artist=artist,
-            date=date,
-            city=city,
-            state="Unknown",  # Hardcoded value
-            venue="Unknown Venue",  # Hardcoded value
-            genres="Unknown",  # Hardcoded value
-            capacity=0,  # Hardcoded value
-            number_of_songs=0,  # Hardcoded value
+            artist=new_concert_data.get("artist", artist),
+            date=new_concert_data.get("date", date),
+            city=new_concert_data.get("city", city),
+            state=new_concert_data.get("state", "Unknown"),  # Fallback
+            venue=new_concert_data.get("venue", "Unknown Venue"),  # Fallback
+            genres=new_concert_data.get("genres", "Unknown"),  # Fallback
+            capacity=new_concert_data.get("capacity", 0),  # Fallback
+            number_of_songs=new_concert_data.get("number_of_songs", 0),  # Fallback
+            average_ticket_price=new_concert_data.get("average_ticket_price", 50.00),  # Fallback
         )
+
+
         db.session.add(new_concert)
         db.session.commit()
 
