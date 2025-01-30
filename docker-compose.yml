@@ -18,6 +18,8 @@ services:
       DB_NAME: concerts_wrapped
       DB_USER: root
       DB_PASSWORD: root
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     depends_on:

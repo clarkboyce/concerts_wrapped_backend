@@ -13,9 +13,8 @@ def add_user_to_concert():
     user_id = data.get("userId")
     concert_id = data.get("concertId")
     ticket_price = data.get("ticketPrice")
-    concert_date = data.get("concertDate")  # Expecting a date string, e.g. "2020-05-10"
 
-    return add_user_concert(user_id, concert_id, ticket_price, concert_date)
+    return add_user_concert(user_id, concert_id, ticket_price,)
 
 @user_concerts_bp.route("/", methods=["GET"])
 def get_user_concerts():

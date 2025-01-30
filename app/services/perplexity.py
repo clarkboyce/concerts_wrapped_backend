@@ -2,9 +2,12 @@ import requests
 from pydantic import BaseModel
 import datetime
 import json
+import os
+from app.utils import logger  # Import the logger
+
 
 url = "https://api.perplexity.ai/chat/completions"
-API_KEY = ""  # Replace with your API key
+API_KEY =  os.getenv("PERPLEXITY_API_KEY") # Replace with your API key
 
 CONFIDENCE_THRESHOLD = 70  # Adjust as needed
 
@@ -48,55 +51,33 @@ def search_events(artist, date, city):
     }
 
     try:
+        logger.info("Querying Perplexity API for artist: %s, date: %s, city: %s", artist, date, city)
         response = requests.post(url, headers=headers, json=payload)
-        print("Raw API Response:", response.text)  # Print raw response
+        response.raise_for_status() 
         response_data = response.json()
-        print("Response Data:", response_data)  # Print raw response
+        logger.debug("Raw API Response: %s", response_data)
 
         if "choices" in response_data and response_data["choices"]:
-            content = response_data["choices"][0]["message"]["content"]
+            content = response_data["choices"][0]["message"]["content"].strip('```json\n').strip('```')
 
-            # Remove the markdown code block and strip extra spaces
-            content = content.strip('```json\n').strip('```')
-
-            # Try to parse the content as JSON
             try:
                 json_event_data = json.loads(content)
+                logger.info("Parsed JSON from API: %s", json_event_data)
             except json.JSONDecodeError as e:
-                print(f"Error parsing JSON content: {e}")
+                logger.error("Error parsing JSON content: %s", e, exc_info=True)
                 return None
 
-            # Access the confidence score and check it
             confidence = json_event_data.get("confidence_score", 0)
-
             if confidence < CONFIDENCE_THRESHOLD:
-                print(f"Low confidence ({confidence}%), ignoring Perplexity API result.")
-                return None  # Reject result if confidence is too low
+                logger.warning("Low confidence (%d%%), ignoring API result.", confidence)
+                return None  
 
-            return json_event_data  # Return the parsed dictionary
+            return json_event_data  
+
         else:
-            print("No valid response from Perplexity API")
+            logger.error("No valid response from Perplexity API")
             return None
+
     except requests.exceptions.RequestException as e:
-        print(f"Error querying Perplexity API: {e}")
+        logger.error("Error querying Perplexity API: %s", e, exc_info=True)
         return None
-
-def main():
-    # Example inputs for testing
-    artist = "Taylor Swift"
-    date = "2023-08-3"
-    city = "Los Angeles"
-
-    print("Testing search_events with the following inputs:")
-    print(f"Artist: {artist}, Date: {date}, City: {city}")
-    
-    result = search_events(artist, date, city)
-
-    if result:
-        print("\nAPI Response:")
-        print(result)
-    else:
-        print("\nNo valid response received from the API.")
-
-if __name__ == "__main__":
-    main()

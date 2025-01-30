@@ -7,6 +7,7 @@ class UsersConcert(db.Model):
     concert_id = db.Column(db.Integer, db.ForeignKey("concerts.id"), nullable=False)
     user_ticket_price = db.Column(db.Float, nullable=True)  # Added ticket price field
     timestamp = db.Column(db.Date, nullable=False)
+    
 
     # Relationship to Concert
     concert = db.relationship("Concert", back_populates="users")

@@ -3,17 +3,12 @@ from app.schemas.user_concerts import UsersConcertSchema
 
 from app.extensions import db
 from flask import abort
-from datetime import datetime
+from datetime import UTC, datetime
 
-def add_user_concert(user_id, concert_id, ticket_price, concert_date):
-    if not user_id or not concert_id or not concert_date:
-        abort(400, "userId, concertId, and concertDate are required")
+def add_user_concert(user_id, concert_id, ticket_price):
+    if not user_id or not concert_id:
+        abort(400, "userId, concertId,")
 
-    try:
-        # Parse the concert_date from string to date (YYYY-MM-DD format)
-        concert_date = datetime.strptime(concert_date, "%Y-%m-%d").date()
-    except ValueError:
-        abort(400, "Invalid date format. Use YYYY-MM-DD")
     
     # Check if the user already has a concert entry with the same user_id and concert_id
     existing_concert = UsersConcert.query.filter_by(user_id=user_id, concert_id=concert_id).first()
@@ -26,7 +21,7 @@ def add_user_concert(user_id, concert_id, ticket_price, concert_date):
         user_id=user_id,
         concert_id=concert_id,
         user_ticket_price=ticket_price,
-        timestamp=concert_date,
+        timestamp=datetime.now(UTC)  
     )
     db.session.add(user_concert)
     db.session.commit()
