@@ -106,7 +106,7 @@ def process_concert_tickets(tickets, user_id=None):
 
         if user_id:
             # Add the user to the new concert
-            add_user_concert(user_id, new_concert.id, ticket_price, date)
+            add_user_concert(user_id, new_concert.id, ticket_price)
 
         results.append(
             {

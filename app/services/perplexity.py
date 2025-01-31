@@ -67,7 +67,8 @@ def search_events(artist, date, city):
                 logger.error("Error parsing JSON content: %s", e, exc_info=True)
                 return None
 
-            confidence = json_event_data.get("confidence_score", 0)
+            confidence = json_event_data.get("confidence_score") or json_event_data.get("concert_details", {}).get("confidence_score", 0)
+            
             if confidence < CONFIDENCE_THRESHOLD:
                 logger.warning("Low confidence (%d%%), ignoring API result.", confidence)
                 return None  
