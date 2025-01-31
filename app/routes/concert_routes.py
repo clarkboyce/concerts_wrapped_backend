@@ -20,11 +20,10 @@ def get_concerts_view():
     # Get query parameters from the request
     artist = request.args.get("artist")
     city = request.args.get("city")
-    state = request.args.get("state")
     date = request.args.get("date")
 
     # Fetch concerts using the provided service, applying filters
-    results = get_concerts(artist=artist, city=city, state=state, date=date)
+    results = get_concerts(artist=artist, city=city, date=date)
 
     # Limit the results to 20 concerts
     limited_results = results[:20]

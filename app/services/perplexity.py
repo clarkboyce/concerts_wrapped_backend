@@ -23,35 +23,66 @@ class AnswerFormat(BaseModel):
     average_ticket_price: float
     confidence_score: int
 
-def search_events(artist, date, city):
+class VenueCapacityFormat(BaseModel):
+    venue_capacity: int
+    confidence_score: int
+
+def search_events(artist, date, city, capacity_only=False):
     headers = {
         "Authorization": f"Bearer {API_KEY}",
     }
 
-    payload = {
-        "model": "sonar",
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are an AI that helps find concert details. Given an artist, date, and city, "
-                    "provide the state, venue, genre, capacity as exact integer value, number of songs as exact integer value, and specific average ticket price between (0-10000) as exact float value. "
-                    "Your response must be in JSON format DO NOT WRITE NORMAL TEXT and include a confidence_score (1-100)."
-                ),
+    if capacity_only:
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an AI that helps find venue capacity. Given venue name and city, return capacity as integer in JSON with confidence_score (1-100). "
+                        "Format: {\"venue_capacity\": int, \"confidence_score\": int}"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"What is the capacity of {artist} venue in {city}?",  # artist parameter is used as venue name
+                },
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"schema": VenueCapacityFormat.model_json_schema()},
             },
-            {
-                "role": "user",
-                "content": f"Find concert details for {artist} performing on {date} in {city}.",
+        }
+    else:
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an AI that helps find concert details. Given an artist, date, and city, "
+                        "provide the state, venue, genre, capacity as exact integer value, and specific average ticket price between (0-10000) as exact float value. "
+                        "Your response must be in JSON format DO NOT WRITE NORMAL TEXT and include a confidence_score (1-100)."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Find concert details for {artist} performing on {date} in {city}.",
+                },
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"schema": AnswerFormat.model_json_schema()},
             },
-        ],
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"schema": AnswerFormat.model_json_schema()},
-        },
-    }
+        }
 
     try:
-        logger.info("Querying Perplexity API for artist: %s, date: %s, city: %s", artist, date, city)
+        logger.info(
+            "Querying Perplexity API for %s: %s, city: %s", 
+            "venue capacity" if capacity_only else "artist",
+            artist,
+            city
+        )
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status() 
         response_data = response.json()
@@ -62,6 +93,8 @@ def search_events(artist, date, city):
 
             try:
                 json_event_data = json.loads(content)
+                if not capacity_only:
+                    json_event_data["number_of_songs"] = 12
                 logger.info("Parsed JSON from API: %s", json_event_data)
             except json.JSONDecodeError as e:
                 logger.error("Error parsing JSON content: %s", e, exc_info=True)

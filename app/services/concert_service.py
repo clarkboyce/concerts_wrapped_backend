@@ -1,4 +1,3 @@
-
 from rapidfuzz import fuzz, process
 from app.models.concert import Concert
 from app.schemas.concert import ConcertSchema
@@ -13,19 +12,17 @@ from app.services.perplexity import search_events  # The function above
 
 CONFIDENCE_THRESHOLD = 60  # Adjust as neededx
 
-def get_concerts(artist=None, city=None, state=None, date=None):
+def get_concerts(artist=None, city=None, date=None):
     query = Concert.query
     if artist:
         query = query.filter(Concert.artist.ilike(f"%{artist}%"))
     if city:
         query = query.filter(Concert.city.ilike(f"%{city}%"))
-    if state:
-        query = query.filter(Concert.state.ilike(f"%{state}%"))
     if date:
         query = query.filter(Concert.date == date)
 
     concerts = query.all()
-    return ConcertSchema(many=True).dump(concerts)  # Changed schema name
+    return ConcertSchema(many=True).dump(concerts)
 
 # def delete_concert(id):
 #     concert = Concert.query.get(id)
@@ -63,9 +60,17 @@ def process_concert_tickets(tickets, user_id=None):
                 (c for c in concerts if c.artist == match[0]), None
             )
             if matched_concert:
+                # Check if capacity is missing
+                if matched_concert.capacity == 0:
+                    # Search for venue capacity only
+                    venue_api_response = search_events(matched_concert.venue, matched_concert.city, capacity_only=True)
+                    if venue_api_response and "venue_capacity" in venue_api_response:
+                        matched_concert.capacity = venue_api_response["venue_capacity"]
+                        db.session.commit()
+
                 if user_id:
                     # Add the user to the concert
-                    add_user_concert(user_id, matched_concert.id, ticket_price )
+                    add_user_concert(user_id, matched_concert.id, ticket_price)
                 results.append(
                     {
                         "ticket": ticket,
@@ -79,6 +84,8 @@ def process_concert_tickets(tickets, user_id=None):
         api_response = search_events(artist, date, city)
 
 
+
+        
         if not api_response or "concert_details" not in api_response:
             results.append({"ticket": ticket, "error": "No match found via API"})
             continue
