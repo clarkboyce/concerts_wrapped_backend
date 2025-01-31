@@ -1,0 +1,29 @@
+version: '3'
+services:
+  db:
+    image: mariadb:10.6
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: concerts_wrapped
+    volumes:
+      - db-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_NAME: concerts_wrapped
+      DB_USER: root
+      DB_PASSWORD: root
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  db-data:
