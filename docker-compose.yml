@@ -6,6 +6,8 @@ services:
       MYSQL_DATABASE: concerts_wrapped
     volumes:
       - db-data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d
+      - ./app:/var/lib/mysql-files
     ports:
       - "3306:3306"
   backend:

@@ -60,3 +60,8 @@ def delete_user_concert(user_id, concert_id):
     db.session.delete(user_concert)
     db.session.commit()
     return {"message": "User concert deleted successfully"}
+
+def get_total_users():
+    # Count distinct user_ids from UsersConcert table
+    unique_users_count = db.session.query(db.func.count(db.distinct(UsersConcert.user_id))).scalar()
+    return unique_users_count

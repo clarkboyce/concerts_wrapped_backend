@@ -5,7 +5,9 @@ from app.extensions import db
 from app.services.user_concerts_service import add_user_concert
  # Changed from user_concerts to concert
 from app.extensions import db
-from app.services.perplexity import search_events  # The function above
+from app.services.perplexity import search_event  # The function above
+from app.services.perplexity import search_venue_capacity
+from sqlalchemy import inspect
 
 
 
@@ -34,6 +36,11 @@ def get_concerts(artist=None, city=None, date=None):
 #     return {"message": "Concert deleted successfully"}
 
 def process_concert_tickets(tickets, user_id=None):
+    # Debug: Print model inspection
+    inspector = inspect(Concert)
+    print("Model attributes:", [c.key for c in inspector.attrs])
+    print("Model columns:", [c.name for c in inspector.columns])
+    
     results = []
 
     for ticket in tickets:
@@ -42,12 +49,23 @@ def process_concert_tickets(tickets, user_id=None):
         city = ticket.get("city")
         ticket_price = ticket.get("ticket_price")
 
+        try:
+            # Debug the query before execution
+            query = Concert.query.filter_by(date=date, city=city)
+            print("SQL Query:", str(query))
+            
+            concerts = query.all()
+            print(f"Found {len(concerts)} concerts")
+            
+        except Exception as e:
+            print(f"Query error: {str(e)}")
+            raise
+
         if not (artist and date and city):
             results.append({"ticket": ticket, "error": "Missing required fields"})
             continue
 
         # Fuzzy match against existing concerts
-        concerts = Concert.query.filter_by(date=date, city=city).all()
         concert_names = [concert.artist for concert in concerts]
 
         match = process.extractOne(
@@ -63,10 +81,12 @@ def process_concert_tickets(tickets, user_id=None):
                 # Check if capacity is missing
                 if matched_concert.capacity == 0:
                     # Search for venue capacity only
-                    venue_api_response = search_events(matched_concert.venue, matched_concert.city, capacity_only=True)
+                    venue_api_response = search_venue_capacity(matched_concert.city, matched_concert.venue)
                     if venue_api_response and "venue_capacity" in venue_api_response:
                         matched_concert.capacity = venue_api_response["venue_capacity"]
                         db.session.commit()
+
+
 
                 if user_id:
                     # Add the user to the concert
@@ -81,19 +101,38 @@ def process_concert_tickets(tickets, user_id=None):
                 continue
 
          # No match found: Call Perplexity API
-        api_response = search_events(artist, date, city)
-
-
-
+        api_response = search_event(city, artist, date)
         
-        if not api_response or "concert_details" not in api_response:
-            results.append({"ticket": ticket, "error": "No match found via API"})
+        if not api_response:
+            print(f"Perplexity API returned no response for {artist} in {city} on {date}")
+            results.append({"ticket": ticket, "error": "Perplexity API call failed"})
             continue
-
-        # Extract concert details from API response
-        concert_data = api_response["concert_details"]
-
-             
+            
+        concert_data = api_response  # Direct access, no more .get("concert_details", {})
+        missing_fields = []
+        
+        # Check required fields
+        if not concert_data.get("artist"):
+            missing_fields.append("artist")
+        if not concert_data.get('venue'):
+            missing_fields.append("venue")
+        if not concert_data.get("city"):
+            missing_fields.append("city")
+        if not concert_data.get("state"):
+            missing_fields.append("state")
+            
+        # Capacity might be 0 or missing, that's okay
+        if concert_data.get("capacity") is None:
+            print(f"No capacity data for venue {concert_data.get('venue', 'unknown')}")
+        
+        if missing_fields:
+            print(f"Perplexity API response missing fields: {', '.join(missing_fields)}")
+            print(f"Raw API response: {api_response}")
+            results.append({
+                "ticket": ticket, 
+                "error": f"Incomplete data from API. Missing: {', '.join(missing_fields)}"
+            })
+            continue
 
         new_concert = Concert(
             artist=concert_data.get("artist", artist),
@@ -104,7 +143,6 @@ def process_concert_tickets(tickets, user_id=None):
             genres=concert_data.get("genre", "Unknown"),  
             capacity=concert_data.get("capacity") if concert_data.get("capacity") is not None else 0,
             number_of_songs=concert_data.get("number_of_songs") if concert_data.get("number_of_songs") is not None else 0,
-            average_ticket_price=concert_data.get("average_ticket_price", 50.00),
         )
 
 
@@ -112,7 +150,7 @@ def process_concert_tickets(tickets, user_id=None):
         db.session.commit()
 
         if user_id:
-            # Add the user to the new concert
+            # Add the user to the new concert with their specific ticket price
             add_user_concert(user_id, new_concert.id, ticket_price)
 
         results.append(

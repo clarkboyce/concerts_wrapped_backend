@@ -11,7 +11,6 @@ class Concert(db.Model):
     state = db.Column(db.String(100), nullable=False)
     capacity = db.Column(db.Integer, nullable=False)
     number_of_songs = db.Column(db.Integer, nullable=False)
-    average_ticket_price = db.Column(db.Double, nullable=True)
 
     # Relationship to UsersConcert
     users = db.relationship("UsersConcert", back_populates="concert", cascade="all, delete-orphan")

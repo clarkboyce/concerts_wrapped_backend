@@ -1,6 +1,7 @@
 import requests
 from pydantic import BaseModel
 import datetime
+from typing import Optional
 import json
 import os
 from app.utils import logger  # Import the logger
@@ -9,7 +10,7 @@ from app.utils import logger  # Import the logger
 url = "https://api.perplexity.ai/chat/completions"
 API_KEY =  os.getenv("PERPLEXITY_API_KEY") # Replace with your API key
 
-CONFIDENCE_THRESHOLD = 70  # Adjust as needed
+CONFIDENCE_THRESHOLD = 60  # Adjust as needed
 
 class AnswerFormat(BaseModel):
     artist: str
@@ -20,68 +21,79 @@ class AnswerFormat(BaseModel):
     genre: str
     capacity: int
     number_of_songs: int
-    average_ticket_price: float
     confidence_score: int
 
 class VenueCapacityFormat(BaseModel):
     venue_capacity: int
     confidence_score: int
 
-def search_events(artist, date, city, capacity_only=False):
+def search_event(city, artist, date):
     headers = {
         "Authorization": f"Bearer {API_KEY}",
     }
 
-    if capacity_only:
-        payload = {
-            "model": "sonar",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an AI that helps find venue capacity. Given venue name and city, return capacity as integer in JSON with confidence_score (1-100). "
-                        "Format: {\"venue_capacity\": int, \"confidence_score\": int}"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"What is the capacity of {artist} venue in {city}?",  # artist parameter is used as venue name
-                },
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"schema": VenueCapacityFormat.model_json_schema()},
+    payload = {
+        "model": "sonar",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Be precise and concise. Return only factual information with high confidence.",
             },
-        }
-    else:
-        payload = {
-            "model": "sonar",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an AI that helps find concert details. Given an artist, date, and city, "
-                        "provide the state, venue, genre, capacity as exact integer value, and specific average ticket price between (0-10000) as exact float value. "
-                        "Your response must be in JSON format DO NOT WRITE NORMAL TEXT and include a confidence_score (1-100)."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Find concert details for {artist} performing on {date} in {city}.",
-                },
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"schema": AnswerFormat.model_json_schema()},
+            {
+                "role": "user",
+                "content": (
+                    f"Find concert details for {artist} performing on {date} in {city}. "
+                    "Return a JSON object with the following fields: "
+                    "artist, date (YYYY-MM-DD), city, state (2-letter code), venue, one genre, "
+                    "capacity (as integer), number_of_songs (as integer), and confidence_score (1-100)."
+                    "Include nothing else in your response."
+                ),
             },
-        }
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"schema": AnswerFormat.model_json_schema()},
+        },
+    }
 
+    return _make_api_request(payload, headers, capacity_only=False)
+
+def search_venue_capacity(city, venue):
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+    }
+
+    payload = {
+        "model": "sonar",
+        "messages": [
+            {
+                "role": "system",
+                "content": "Be precise and concise. Return only factual information with high confidence.",
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"What is the capacity of {venue} in {city}? "
+                    "Return a JSON object with venue_capacity (as integer) "
+                    "and confidence_score (1-100)."
+                    "Include nothing else in your response."
+
+                ),
+            },
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"schema": VenueCapacityFormat.model_json_schema()},
+        },
+    }
+
+    return _make_api_request(payload, headers, capacity_only=True)
+
+def _make_api_request(payload, headers, capacity_only):
     try:
         logger.info(
-            "Querying Perplexity API for %s: %s, city: %s", 
-            "venue capacity" if capacity_only else "artist",
-            artist,
-            city
+            "Querying Perplexity API for %s", 
+            "venue capacity" if capacity_only else "concert details"
         )
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status() 
@@ -89,12 +101,27 @@ def search_events(artist, date, city, capacity_only=False):
         logger.debug("Raw API Response: %s", response_data)
 
         if "choices" in response_data and response_data["choices"]:
-            content = response_data["choices"][0]["message"]["content"].strip('```json\n').strip('```')
-
+            content = response_data["choices"][0]["message"]["content"]
+            
             try:
+                logger.info("Content length: %d", len(content))
+                logger.info("Content exact value: '%s'", content)
+                
+                # Extract JSON from markdown code blocks if present
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0].strip()
+                
+                logger.info("Content after filtering: %s", content)
+
                 json_event_data = json.loads(content)
+                if json_event_data.get("venue_capacity") is None:
+                        json_event_data["venue_capacity"] = 2500
                 if not capacity_only:
                     json_event_data["number_of_songs"] = 12
+
+
                 logger.info("Parsed JSON from API: %s", json_event_data)
             except json.JSONDecodeError as e:
                 logger.error("Error parsing JSON content: %s", e, exc_info=True)

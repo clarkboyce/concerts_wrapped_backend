@@ -30,3 +30,22 @@ def get_concerts_view():
 
     # Return the limited results as JSON
     return jsonify(limited_results), 200
+
+
+#  [
+#   {
+#     "concert": {
+#       "id": 1,
+#       "artist": "Artist Name",
+#       "date": "2024-03-20",
+#       "city": "City Name",
+#       "state": "State",
+#       "venue": "Venue Name",
+#       "genres": "Rock",
+#       "capacity": 1000,
+#       "number_of_songs": 20
+#     },
+#     "ticket_price": 99.99
+#   },
+#   // ... more concerts
+# ]
