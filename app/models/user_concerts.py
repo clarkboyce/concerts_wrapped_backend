@@ -3,7 +3,7 @@ from app.extensions import db
 class UsersConcert(db.Model):
     __tablename__ = "user_concert"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.String, nullable=False)
+    user_id = db.Column(db.String(255), nullable=False)
     concert_id = db.Column(db.Integer, db.ForeignKey("concerts.id"), nullable=False)
     user_ticket_price = db.Column(db.Float, nullable=True)  # Added ticket price field
     timestamp = db.Column(db.Date, nullable=False)
